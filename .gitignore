@@ -1,0 +1,5 @@
+apple2.exe
+apple2.pdb
+win/.vs/
+win/apple2/x64/
+src/tests.c
