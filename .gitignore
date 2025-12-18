@@ -3,3 +3,4 @@ apple2.pdb
 win/.vs/
 win/apple2/x64/
 src/tests.c
+win/x64/Debug/
