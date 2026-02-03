@@ -139,7 +139,6 @@ ie. at the next call to fake6502_step().
 
 */
 
-
 // -------------------------------------------------------------------
 // include's
 // -------------------------------------------------------------------
@@ -149,7 +148,6 @@ ie. at the next call to fake6502_step().
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-
 
 // -------------------------------------------------------------------
 // option's
@@ -164,67 +162,31 @@ ie. at the next call to fake6502_step().
 #error can not have NES_CPU without NMOS6502
 #endif
 
-
 #if defined(NES_CPU) && defined(DECIMALMODE)
 #error can not have NES_CPU and DECIMALMODE
 #endif
-
 
 #if !defined(NMOS6502) && !defined(CMOS6502)
 #error one of NMOS6502 or CMOS6502 must be defined
 #endif
 
-
 #if defined(NMOS6502) && defined(CMOS6502)
 #error can not have both NMOS6502 and CMOS6502 defined
 #endif
-
 
 #if defined(CMOS6502) && !defined(DECIMALMODE)
 #error can not have CMOS6502 without DECIMALMODE
 #endif
 
-
 // -------------------------------------------------------------------
 // global's
 // -------------------------------------------------------------------
-
-
 
 // -------------------------------------------------------------------
 // function's
 // -------------------------------------------------------------------
 
 // a few general functions used by various other functions
-
-void fake6502_push_8(fake6502_context *c, uint8_t pushval)
-{
-    fake6502_mem_write(c, FAKE6502_STACK_BASE + c->cpu.s--, pushval);
-}
-
-void fake6502_push_16(fake6502_context *c, uint16_t pushval)
-{
-    fake6502_push_8(c, (pushval >> 8) & 0xFF);
-    fake6502_push_8(c, pushval & 0xFF);
-}
-
-uint8_t fake6502_pull_8(fake6502_context *c)
-{ return(fake6502_mem_read(c, FAKE6502_STACK_BASE + ++c->cpu.s)); }
-
-uint16_t fake6502_pull_16(fake6502_context *c)
-{
-    uint8_t t;
-    t = fake6502_pull_8(c);
-    return(fake6502_pull_8(c) << 8 | t);
-}
-
-uint16_t fake6502_mem_read16(fake6502_context *c, uint16_t addr)
-{
-    // Read two consecutive bytes from memory
-    return((uint16_t)fake6502_mem_read(c, addr) |
-           ((uint16_t)fake6502_mem_read(c, addr + 1) << 8));
-}
-
 
 // -------------------------------------------------------------------
 
@@ -253,14 +215,14 @@ FAKE6502_FN_ADDR_MODE(zpx)
 { // zero-page,X
     // do zero-page wraparound
     c->emu.ea = ((uint16_t)fake6502_mem_read(c, (uint16_t)c->cpu.pc++) + (uint16_t)c->cpu.x) &
-            0xFF;
+                0xFF;
 }
 
 FAKE6502_FN_ADDR_MODE(zpy)
 { // zero-page,Y
     // do zero-page wraparound
     c->emu.ea = ((uint16_t)fake6502_mem_read(c, (uint16_t)c->cpu.pc++) + (uint16_t)c->cpu.y) &
-            0xFF;
+                0xFF;
 }
 
 FAKE6502_FN_ADDR_MODE(rel)
@@ -361,7 +323,7 @@ FAKE6502_FN_ADDR_MODE(indx)
     eahelp = (uint16_t)(((uint16_t)fake6502_mem_read(c, c->cpu.pc++) + (uint16_t)c->cpu.x) &
                         0xFF);
     c->emu.ea = (uint16_t)fake6502_mem_read(c, eahelp & 0x00FF) |
-            ((uint16_t)fake6502_mem_read(c, (eahelp + 1) & 0x00FF) << 8);
+                ((uint16_t)fake6502_mem_read(c, (eahelp + 1) & 0x00FF) << 8);
 }
 
 FAKE6502_FN_ADDR_MODE(indy)
@@ -405,17 +367,46 @@ FAKE6502_FN_ADDR_MODE(zpi)
         (uint16_t)fake6502_mem_read(c, eahelp) | ((uint16_t)fake6502_mem_read(c, eahelp2) << 8);
 }
 
-
 // -------------------------------------------------------------------
 
 // supporting instruction handler functions
 
+void fake6502_push_8(fake6502_context *c, uint8_t pushval)
+{
+    fake6502_mem_write(c, FAKE6502_STACK_BASE + c->cpu.s--, pushval);
+}
+
+void fake6502_push_16(fake6502_context *c, uint16_t pushval)
+{
+    fake6502_push_8(c, (pushval >> 8) & 0xFF);
+    fake6502_push_8(c, pushval & 0xFF);
+}
+
+uint8_t fake6502_pull_8(fake6502_context *c)
+{
+    return (fake6502_mem_read(c, FAKE6502_STACK_BASE + ++c->cpu.s));
+}
+
+uint16_t fake6502_pull_16(fake6502_context *c)
+{
+    uint8_t t;
+    t = fake6502_pull_8(c);
+    return (fake6502_pull_8(c) << 8 | t);
+}
+
+uint16_t fake6502_mem_read16(fake6502_context *c, uint16_t addr)
+{
+    // Read two consecutive bytes from memory
+    return ((uint16_t)fake6502_mem_read(c, addr) |
+            ((uint16_t)fake6502_mem_read(c, addr + 1) << 8));
+}
+
 uint16_t fake6502_get_value(fake6502_context *c)
 {
     if (fake6502_opcodes[c->emu.opcode].addr_mode == acc)
-        return((uint16_t)c->cpu.a);
+        return ((uint16_t)c->cpu.a);
     else
-        return((uint16_t)fake6502_mem_read(c, c->emu.ea));
+        return ((uint16_t)fake6502_mem_read(c, c->emu.ea));
 }
 
 void fake6502_put_value(fake6502_context *c, uint16_t saveval)
@@ -434,16 +425,15 @@ uint8_t add8(fake6502_context *c, uint16_t a, uint16_t b, bool carry)
     fake6502_overflow_calc(c, result, a, b);
     fake6502_sign_calc(c, result);
 
-    #ifdef DECIMALMODE
+#ifdef DECIMALMODE
     // Apply decimal mode fix from http://forum.6502.org/viewtopic.php?p=37758#p37758
-    if(c->cpu.flags & FAKE6502_DECIMAL_FLAG)
+    if (c->cpu.flags & FAKE6502_DECIMAL_FLAG)
         result += ((((result + 0x66) ^ (uint16_t)a ^ b) >> 3) & 0x22) * 3;
-    #endif
+#endif
 
     fake6502_carry_calc(c, result);
 
-    return(result);
-
+    return (result);
 }
 
 uint8_t rotate_right(fake6502_context *c, uint16_t value)
@@ -457,7 +447,7 @@ uint8_t rotate_right(fake6502_context *c, uint16_t value)
     fake6502_zero_calc(c, result);
     fake6502_sign_calc(c, result);
 
-    return(result);
+    return (result);
 }
 
 uint8_t rotate_left(fake6502_context *c, uint16_t value)
@@ -468,7 +458,7 @@ uint8_t rotate_left(fake6502_context *c, uint16_t value)
     fake6502_zero_calc(c, result);
     fake6502_sign_calc(c, result);
 
-    return(result);
+    return (result);
 }
 
 uint8_t logical_shift_right(fake6502_context *c, uint8_t value)
@@ -481,7 +471,7 @@ uint8_t logical_shift_right(fake6502_context *c, uint8_t value)
     fake6502_zero_calc(c, result);
     fake6502_sign_calc(c, result);
 
-    return(result);
+    return (result);
 }
 
 uint8_t arithmetic_shift_left(fake6502_context *c, uint8_t value)
@@ -491,7 +481,7 @@ uint8_t arithmetic_shift_left(fake6502_context *c, uint8_t value)
     fake6502_carry_calc(c, result);
     fake6502_zero_calc(c, result);
     fake6502_sign_calc(c, result);
-    return(result);
+    return (result);
 }
 
 uint8_t exclusive_or(fake6502_context *c, uint8_t a, uint8_t b)
@@ -501,7 +491,7 @@ uint8_t exclusive_or(fake6502_context *c, uint8_t a, uint8_t b)
     fake6502_zero_calc(c, result);
     fake6502_sign_calc(c, result);
 
-    return(result);
+    return (result);
 }
 
 uint8_t boolean_and(fake6502_context *c, uint8_t a, uint8_t b)
@@ -510,7 +500,7 @@ uint8_t boolean_and(fake6502_context *c, uint8_t a, uint8_t b)
 
     fake6502_zero_calc(c, result);
     fake6502_sign_calc(c, result);
-    return(result);
+    return (result);
 }
 
 uint8_t increment(fake6502_context *c, uint8_t r)
@@ -518,7 +508,7 @@ uint8_t increment(fake6502_context *c, uint8_t r)
     uint16_t result = r + 1;
     fake6502_zero_calc(c, result);
     fake6502_sign_calc(c, result);
-    return(result);
+    return (result);
 }
 
 uint8_t decrement(fake6502_context *c, uint8_t r)
@@ -526,7 +516,7 @@ uint8_t decrement(fake6502_context *c, uint8_t r)
     uint16_t result = r - 1;
     fake6502_zero_calc(c, result);
     fake6502_sign_calc(c, result);
-    return(result);
+    return (result);
 }
 
 void compare(fake6502_context *c, uint16_t r)
@@ -545,7 +535,6 @@ void compare(fake6502_context *c, uint16_t r)
     fake6502_sign_calc(c, result);
 }
 
-
 // -------------------------------------------------------------------
 
 // instruction handler functions
@@ -563,7 +552,9 @@ FAKE6502_FN_OPCODE(and)
 }
 
 FAKE6502_FN_OPCODE(asl)
-{ fake6502_put_value(c, arithmetic_shift_left(c, fake6502_get_value(c))); }
+{
+    fake6502_put_value(c, arithmetic_shift_left(c, fake6502_get_value(c)));
+}
 
 FAKE6502_FN_OPCODE(bra)
 {
@@ -660,49 +651,79 @@ FAKE6502_FN_OPCODE(bvs)
 }
 
 FAKE6502_FN_OPCODE(clc)
-{ fake6502_carry_clear(c); }
+{
+    fake6502_carry_clear(c);
+}
 
 FAKE6502_FN_OPCODE(cld)
-{ fake6502_decimal_clear(c); }
+{
+    fake6502_decimal_clear(c);
+}
 
 FAKE6502_FN_OPCODE(cli)
-{ fake6502_interrupt_clear(c); }
+{
+    fake6502_interrupt_clear(c);
+}
 
 FAKE6502_FN_OPCODE(clv)
-{ fake6502_overflow_clear(c); }
+{
+    fake6502_overflow_clear(c);
+}
 
 FAKE6502_FN_OPCODE(cmp)
-{ compare(c, c->cpu.a); }
+{
+    compare(c, c->cpu.a);
+}
 
 FAKE6502_FN_OPCODE(cpx)
-{ compare(c, c->cpu.x); }
+{
+    compare(c, c->cpu.x);
+}
 
 FAKE6502_FN_OPCODE(cpy)
-{ compare(c, c->cpu.y); }
+{
+    compare(c, c->cpu.y);
+}
 
 FAKE6502_FN_OPCODE(dec)
-{ fake6502_put_value(c, decrement(c, fake6502_get_value(c))); }
+{
+    fake6502_put_value(c, decrement(c, fake6502_get_value(c)));
+}
 
 FAKE6502_FN_OPCODE(dex)
-{ c->cpu.x = decrement(c, c->cpu.x); }
+{
+    c->cpu.x = decrement(c, c->cpu.x);
+}
 
 FAKE6502_FN_OPCODE(dey)
-{ c->cpu.y = decrement(c, c->cpu.y); }
+{
+    c->cpu.y = decrement(c, c->cpu.y);
+}
 
 FAKE6502_FN_OPCODE(eor)
-{ fake6502_accum_save(c, exclusive_or(c, c->cpu.a, fake6502_get_value(c))); }
+{
+    fake6502_accum_save(c, exclusive_or(c, c->cpu.a, fake6502_get_value(c)));
+}
 
 FAKE6502_FN_OPCODE(inc)
-{ fake6502_put_value(c, increment(c, fake6502_get_value(c))); }
+{
+    fake6502_put_value(c, increment(c, fake6502_get_value(c)));
+}
 
 FAKE6502_FN_OPCODE(inx)
-{ c->cpu.x = increment(c, c->cpu.x); }
+{
+    c->cpu.x = increment(c, c->cpu.x);
+}
 
 FAKE6502_FN_OPCODE(iny)
-{ c->cpu.y = increment(c, c->cpu.y); }
+{
+    c->cpu.y = increment(c, c->cpu.y);
+}
 
 FAKE6502_FN_OPCODE(jmp)
-{ c->cpu.pc = c->emu.ea; }
+{
+    c->cpu.pc = c->emu.ea;
+}
 
 FAKE6502_FN_OPCODE(jsr)
 {
@@ -738,10 +759,13 @@ FAKE6502_FN_OPCODE(ldy)
 }
 
 FAKE6502_FN_OPCODE(lsr)
-{ fake6502_put_value(c, logical_shift_right(c, fake6502_get_value(c))); }
+{
+    fake6502_put_value(c, logical_shift_right(c, fake6502_get_value(c)));
+}
 
 FAKE6502_FN_OPCODE(nop)
-{}
+{
+}
 
 FAKE6502_FN_OPCODE(ora)
 {
@@ -755,16 +779,24 @@ FAKE6502_FN_OPCODE(ora)
 }
 
 FAKE6502_FN_OPCODE(pha)
-{ fake6502_push_8(c, c->cpu.a); }
+{
+    fake6502_push_8(c, c->cpu.a);
+}
 
 FAKE6502_FN_OPCODE(phx)
-{ fake6502_push_8(c, c->cpu.x); }
+{
+    fake6502_push_8(c, c->cpu.x);
+}
 
 FAKE6502_FN_OPCODE(phy)
-{ fake6502_push_8(c, c->cpu.y); }
+{
+    fake6502_push_8(c, c->cpu.y);
+}
 
 FAKE6502_FN_OPCODE(php)
-{ fake6502_push_8(c, c->cpu.flags | FAKE6502_BREAK_FLAG); }
+{
+    fake6502_push_8(c, c->cpu.flags | FAKE6502_BREAK_FLAG);
+}
 
 FAKE6502_FN_OPCODE(pla)
 {
@@ -791,7 +823,9 @@ FAKE6502_FN_OPCODE(ply)
 }
 
 FAKE6502_FN_OPCODE(plp)
-{ c->cpu.flags = fake6502_pull_8(c) | FAKE6502_CONSTANT_FLAG | FAKE6502_BREAK_FLAG; }
+{
+    c->cpu.flags = fake6502_pull_8(c) | FAKE6502_CONSTANT_FLAG | FAKE6502_BREAK_FLAG;
+}
 
 FAKE6502_FN_OPCODE(rol)
 {
@@ -816,41 +850,57 @@ FAKE6502_FN_OPCODE(rti)
 }
 
 FAKE6502_FN_OPCODE(rts)
-{ c->cpu.pc = fake6502_pull_16(c) + 1; }
+{
+    c->cpu.pc = fake6502_pull_16(c) + 1;
+}
 
 FAKE6502_FN_OPCODE(sbc)
 {
     uint16_t value = fake6502_get_value(c) ^ 0x00ff; // ones complement
 
-    #ifdef DECIMALMODE
-        // Apply decimal mode fix from http://forum.6502.org/viewtopic.php?p=37758#p37758
-        if(c->cpu.flags & FAKE6502_DECIMAL_FLAG)
-          value -= 0x0066; // use nines complement for BCD
-    #endif
+#ifdef DECIMALMODE
+                                                     // Apply decimal mode fix from http://forum.6502.org/viewtopic.php?p=37758#p37758
+    if (c->cpu.flags & FAKE6502_DECIMAL_FLAG)
+        value -= 0x0066; // use nines complement for BCD
+#endif
 
     fake6502_accum_save(c, add8(c, c->cpu.a, value, c->cpu.flags & FAKE6502_CARRY_FLAG));
 }
 
 FAKE6502_FN_OPCODE(sec)
-{ fake6502_carry_set(c); }
+{
+    fake6502_carry_set(c);
+}
 
 FAKE6502_FN_OPCODE(sed)
-{ fake6502_decimal_set(c); }
+{
+    fake6502_decimal_set(c);
+}
 
 FAKE6502_FN_OPCODE(sei)
-{ fake6502_interrupt_set(c); }
+{
+    fake6502_interrupt_set(c);
+}
 
 FAKE6502_FN_OPCODE(sta)
-{ fake6502_put_value(c, c->cpu.a); }
+{
+    fake6502_put_value(c, c->cpu.a);
+}
 
 FAKE6502_FN_OPCODE(stx)
-{ fake6502_put_value(c, c->cpu.x); }
+{
+    fake6502_put_value(c, c->cpu.x);
+}
 
 FAKE6502_FN_OPCODE(sty)
-{ fake6502_put_value(c, c->cpu.y); }
+{
+    fake6502_put_value(c, c->cpu.y);
+}
 
 FAKE6502_FN_OPCODE(stz)
-{ fake6502_put_value(c, 0); }
+{
+    fake6502_put_value(c, 0);
+}
 
 FAKE6502_FN_OPCODE(tax)
 {
@@ -901,7 +951,9 @@ FAKE6502_FN_OPCODE(txa)
 }
 
 FAKE6502_FN_OPCODE(txs)
-{ c->cpu.s = c->cpu.x; }
+{
+    c->cpu.s = c->cpu.x;
+}
 
 FAKE6502_FN_OPCODE(tya)
 {
@@ -921,7 +973,9 @@ FAKE6502_FN_OPCODE(lax)
 }
 
 FAKE6502_FN_OPCODE(sax)
-{ fake6502_put_value(c, c->cpu.a & c->cpu.x); }
+{
+    fake6502_put_value(c, c->cpu.a & c->cpu.x);
+}
 
 FAKE6502_FN_OPCODE(dcp)
 {
@@ -967,7 +1021,6 @@ FAKE6502_FN_OPCODE(rra)
     fake6502_put_value(c, result);
     fake6502_accum_save(c, add8(c, c->cpu.a, result, c->cpu.flags & FAKE6502_CARRY_FLAG));
 }
-
 
 // -------------------------------------------------------------------
 // global's
@@ -1251,7 +1304,6 @@ fake6502_opcode fake6502_opcodes[256] = {
     {absx, isb, 7}};
 #endif
 
-
 // -------------------------------------------------------------------
 
 // the opcode table - CMOS version
@@ -1532,7 +1584,6 @@ fake6502_opcode fake6502_opcodes[256] = {
     {absx, isb, 7}};
 #endif
 
-
 // -------------------------------------------------------------------
 
 // fake 6502 - API
@@ -1587,6 +1638,5 @@ void fake6502_step(fake6502_context *c)
     fake6502_opcodes[opcode].opcode(c);
     c->emu.clockticks += fake6502_opcodes[opcode].clockticks;
 }
-
 
 // -------------------------------------------------------------------
