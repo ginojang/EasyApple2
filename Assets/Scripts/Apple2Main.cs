@@ -1,7 +1,9 @@
-using System;
+ï»¿using System;
 using System.Text;
 using UnityEngine;
 using TMPro;
+
+
 
 public class Apple2Main : MonoBehaviour
 {
@@ -16,8 +18,8 @@ public class Apple2Main : MonoBehaviour
     // UI
     // ----------------------------
     [Header("UI (optional)")]
-    public TMP_Text debugText;   // ·¹Áö½ºÅÍ Ãâ·Â
-    public TMP_Text screenText;  // 40x24 Ãâ·Â
+    public TMP_Text debugText;   // ë ˆì§€ìŠ¤í„° ì¶œë ¥
+    public TMP_Text screenText;  // 40x24 ì¶œë ¥
 
     // ----------------------------
     // Memory (64KB)
@@ -28,7 +30,7 @@ public class Apple2Main : MonoBehaviour
     // Keyboard latch (same as C)
     // ----------------------------
     private byte kbdLatch = 0;   // ASCII
-    private byte kbdStrobe = 0;  // 1ÀÌ¸é key ready
+    private byte kbdStrobe = 0;  // 1ì´ë©´ key ready
 
     // ----------------------------
     // CPU
@@ -39,17 +41,32 @@ public class Apple2Main : MonoBehaviour
     // Timing
     // ----------------------------
     public int fps = 24;
-    private const int CPU_HZ = 1_000_000; // C ÄÚµå ±×´ë·Î 1MHz °¡Á¤
-    private int cyclesPerFrame;
-
+    
     // ----------------------------
     // Dump / Debug
     // ----------------------------
-    public int dumpEverySteps = 100000; // C ÄÚµå step_count % 100000
+    public int dumpEverySteps = 100000; // C ì½”ë“œ step_count % 100000
     private int stepCount = 0;
 
     private readonly StringBuilder sbDebug = new StringBuilder(256);
     private readonly StringBuilder sbScreen = new StringBuilder(40 * 24 + 32);
+
+    const char CursorChar = 'â–Œ';
+    const char CursorToken = '`';
+    
+    [SerializeField] private float cursorBlinkInterval = 0.5f; // 0.5ì´ˆë§ˆë‹¤ í† ê¸€
+    private float _cursorBlinkTimer = 0f;
+    private bool _cursorOn = true;
+
+    private long _cyclesAcc;
+    private float _secAcc;
+
+    string debugCPUSpeed;
+        
+
+    [SerializeField] int cyclesPerFixed = 600000;     // fixedDeltaTime ê¸°ì¤€ìœ¼ë¡œ ìž¡ê±°ë‚˜ ê³ ì •
+    [SerializeField] int maxCyclesPerFixed = 800000;  // ìŠ¤íŒŒì´ëŸ´ ë°©ì§€ ìº¡
+
 
     void Start()
     {
@@ -59,7 +76,7 @@ public class Apple2Main : MonoBehaviour
         cpu = new Fake6502(ReadMem, WriteMem);
 
         // -----------------------------------------
-        // ROM Load (C main°ú µ¿ÀÏ)
+        // ROM Load (C mainê³¼ ë™ì¼)
         // -----------------------------------------
         LoadRom(apple2PlusRom, 0xD000);
         //LoadRom(apple2VideoRom, 0xC000);
@@ -76,40 +93,49 @@ public class Apple2Main : MonoBehaviour
         cpu.Reset();
         Log($"CPU PC after reset = ${cpu.cpu.PC:X4}");
 
-        // -----------------------------------------
-        // Timing
-        // -----------------------------------------
-        cyclesPerFrame = CPU_HZ / Mathf.Max(1, fps);
-        Log($"FPS={fps}, CYCLES_PER_FRAME={cyclesPerFrame}");
+        
     }
 
-    void Update()
+    private void Update()
     {
-        // -----------------------------------------
-        // Keyboard -> latch/strobe
-        // -----------------------------------------
         HandleKeyboardInput();
+        DumpDebug();
+        DumpText40x24();
+    }
 
-        // -----------------------------------------
-        // Emu loop (C main while loop equivalent)
-        // -----------------------------------------
+
+
+    private void FixedUpdate()
+    {
+        int budget = cyclesPerFixed;
+        if (budget > maxCyclesPerFixed) budget = maxCyclesPerFixed;
+
         int cycles = 0;
-
-        while (cycles < cyclesPerFrame)
+        while (cycles < budget)
         {
-            int used = cpu.Step(); // 1 instruction
-            cycles += used;
-
-            if ((stepCount++ % dumpEverySteps) == 0)
-            {
-                DumpDebug();
-                DumpText40x24();
-            }
+            cycles += cpu.Step(); // Stepì€ "instruction 1ê°œ + ì‚¬ìš© cycle ë°˜í™˜"
         }
 
-        // C ÄÚµåÀÇ Sleep(1000/FPS)´Â Unity ÇÁ·¹ÀÓÀÌ ´ëÃ¼ÇÏ¹Ç·Î º¸Åë ºÒÇÊ¿ä
-        // (fps¸¦ °íÁ¤ÇÏ°í ½ÍÀ¸¸é Application.targetFrameRate = fps; ¸¦ »ç¿ë)
+        _cursorBlinkTimer += Time.fixedDeltaTime;
+        if (_cursorBlinkTimer >= cursorBlinkInterval)
+        {
+            _cursorBlinkTimer -= cursorBlinkInterval;
+            _cursorOn = !_cursorOn;
+        }
+
+        //
+        _cyclesAcc += cycles;
+
+        _secAcc += Time.fixedDeltaTime;
+        if (_secAcc >= 1.0f)
+        {
+            double mhz = _cyclesAcc / _secAcc / 1_000_000.0;
+            debugCPUSpeed = $"CPU : {mhz:F2} MHz  (cycles={_cyclesAcc}, sec={_secAcc:F2})";
+            _cyclesAcc = 0;
+            _secAcc = 0f;
+        }
     }
+
 
     // ------------------------------------------------------------
     // ROM loader (TextAsset bytes copy)
@@ -153,7 +179,7 @@ public class Apple2Main : MonoBehaviour
 
     private void WriteMem(Fake6502 c, ushort address, byte val)
     {
-        // TODO: IO ºÐ±â Ãß°¡ (speaker, video softswitch µî)
+        // TODO: IO ë¶„ê¸° ì¶”ê°€ (speaker, video softswitch ë“±)
         mem[address] = val;
     }
 
@@ -163,7 +189,7 @@ public class Apple2Main : MonoBehaviour
     private void HandleKeyboardInput()
     {
         /*
-        // inputString: ÀÌ¹ø ÇÁ·¹ÀÓ¿¡ µé¾î¿Â printable ¹®ÀÚµé
+        // inputString: ì´ë²ˆ í”„ë ˆìž„ì— ë“¤ì–´ì˜¨ printable ë¬¸ìžë“¤
         string s = Input.inputString;
         if (!string.IsNullOrEmpty(s))
         {
@@ -172,7 +198,7 @@ public class Apple2Main : MonoBehaviour
             kbdStrobe = 1;
         }
 
-        // Æ¯¼öÅ°(Enter/Backspace µî) ÇÊ¿äÇÏ¸é ¿©±â¼­ ¸ÅÇÎ
+        // íŠ¹ìˆ˜í‚¤(Enter/Backspace ë“±) í•„ìš”í•˜ë©´ ì—¬ê¸°ì„œ ë§¤í•‘
         if (Input.GetKeyDown(KeyCode.Return))
         {
             kbdLatch = 0x0D; // CR
@@ -185,9 +211,10 @@ public class Apple2Main : MonoBehaviour
         }
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            // ±ÞÁ¤Áö¿ë(µð¹ö±×)
+            // ê¸‰ì •ì§€ìš©(ë””ë²„ê·¸)
             // enabled = false;
-        }*/
+        }
+        */
     }
 
     // ------------------------------------------------------------
@@ -208,8 +235,8 @@ public class Apple2Main : MonoBehaviour
     {
         sbDebug.Clear();
         sbDebug.AppendFormat(
-            "PC=${0:X4} A={1:X2} X={2:X2} Y={3:X2} SP={4:X2} FLAGS={5:X2}\n",
-            cpu.cpu.PC, cpu.cpu.A, cpu.cpu.X, cpu.cpu.Y, cpu.cpu.S, cpu.cpu.Flags
+            "{0}\nPC=${1:X4} A={2:X2} X={3:X2} Y={4:X2} SP={5:X2} FLAGS={6:X2}\n",
+            debugCPUSpeed, cpu.cpu.PC, cpu.cpu.A, cpu.cpu.X, cpu.cpu.Y, cpu.cpu.S, cpu.cpu.Flags
         );
 
         if (debugText != null) debugText.text = sbDebug.ToString();
@@ -229,7 +256,10 @@ public class Apple2Main : MonoBehaviour
                 char ch;
                 if (v >= 0xA0 && v <= 0xDF) ch = (char)(v & 0x7F);
                 else if (v >= 0x20 && v <= 0x7F) ch = (char)v;
-                else ch = '.';
+                else ch = ' ';
+
+                if (ch == CursorToken)
+                    ch = _cursorOn ? CursorChar : ' ';
 
                 sbScreen.Append(ch);
             }
@@ -242,6 +272,6 @@ public class Apple2Main : MonoBehaviour
     private void Log(string msg)
     {
         Debug.Log(msg);
-        // debugText°¡ ÀÖ°í ¡°·Î±× ¿µ¿ª¡±±îÁö °°ÀÌ ¾²°í ½ÍÀ¸¸é ¿©±â¼­ appendµµ °¡´É
+        // debugTextê°€ ìžˆê³  â€œë¡œê·¸ ì˜ì—­â€ê¹Œì§€ ê°™ì´ ì“°ê³  ì‹¶ìœ¼ë©´ ì—¬ê¸°ì„œ appendë„ ê°€ëŠ¥
     }
 }

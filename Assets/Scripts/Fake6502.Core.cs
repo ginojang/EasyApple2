@@ -908,6 +908,7 @@ public sealed partial class Fake6502
 
     public static OpcodeEntry[] Opcodes = new OpcodeEntry[256]
     {
+        /* 00 */
             /* 00 */ new OpcodeEntry(imp, brk, 7),
             /* 01 */ new OpcodeEntry(indx, ora, 6),
             /* 02 */ new OpcodeEntry(imp, nop, 2),
@@ -1183,6 +1184,8 @@ public sealed partial class Fake6502
         new OpcodeEntry(absx, isb, 7),
 
     };
+
+
 
 
    
