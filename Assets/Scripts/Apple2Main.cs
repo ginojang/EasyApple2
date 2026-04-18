@@ -33,6 +33,12 @@ public class Apple2Main : MonoBehaviour
     private byte kbdStrobe = 0;  // 1이면 key ready
 
     // ----------------------------
+    // Interrupt / Reset pending
+    // ----------------------------
+    private bool _pendingReset = false;  // F12      → RESET (hard)
+    private bool _pendingNmi   = false;  // Ctrl+F12 → NMI   (warm)
+
+    // ----------------------------
     // CPU
     // ----------------------------
     private Fake6502 cpu;
@@ -107,6 +113,10 @@ public class Apple2Main : MonoBehaviour
 
     private void FixedUpdate()
     {
+        // 인스트럭션 경계에서 인터럽트/리셋 처리
+        if (_pendingReset) { cpu.Reset(); _pendingReset = false; }
+        if (_pendingNmi)   { cpu.Nmi();   _pendingNmi   = false; }
+
         int budget = cyclesPerFixed;
         if (budget > maxCyclesPerFixed) budget = maxCyclesPerFixed;
 
@@ -188,33 +198,45 @@ public class Apple2Main : MonoBehaviour
     // ------------------------------------------------------------
     private void HandleKeyboardInput()
     {
-        /*
-        // inputString: 이번 프레임에 들어온 printable 문자들
-        string s = Input.inputString;
-        if (!string.IsNullOrEmpty(s))
+        // inputString: 이번 프레임 printable 문자 + \b(Backspace)
+        // 여러 문자가 한 프레임에 올 수 있으므로 마지막 키만 래치에 올림
+        foreach (char ch in Input.inputString)
         {
-            char ch = s[s.Length - 1];
-            kbdLatch = (byte)ch;
-            kbdStrobe = 1;
+            byte ascii = CharToApple2Ascii(ch);
+            if (ascii != 0)
+            {
+                kbdLatch = ascii;
+                kbdStrobe = 1;
+            }
         }
 
-        // 특수키(Enter/Backspace 등) 필요하면 여기서 매핑
-        if (Input.GetKeyDown(KeyCode.Return))
+        // inputString에 포함되지 않는 특수키
+        if (Input.GetKeyDown(KeyCode.Return))     { kbdLatch = 0x0D; kbdStrobe = 1; } // CR
+        if (Input.GetKeyDown(KeyCode.Escape))     { kbdLatch = 0x1B; kbdStrobe = 1; } // ESC
+        if (Input.GetKeyDown(KeyCode.LeftArrow))  { kbdLatch = 0x08; kbdStrobe = 1; } // ^H (Apple II 왼쪽)
+        if (Input.GetKeyDown(KeyCode.RightArrow)) { kbdLatch = 0x15; kbdStrobe = 1; } // ^U (Apple II 오른쪽)
+        if (Input.GetKeyDown(KeyCode.UpArrow))    { kbdLatch = 0x0B; kbdStrobe = 1; } // ^K
+        if (Input.GetKeyDown(KeyCode.DownArrow))  { kbdLatch = 0x0A; kbdStrobe = 1; } // ^J
+
+        // 리셋 키 (실제 Apple II RESET 버튼 대응)
+        // F12          → 하드 리셋 (6502 RESET 핀 = 0xFFFC 벡터)
+        // Ctrl + F12   → NMI      (Ctrl+Reset 워밍스타트 = 0xFFFA 벡터)
+        if (Input.GetKeyDown(KeyCode.F12))
         {
-            kbdLatch = 0x0D; // CR
-            kbdStrobe = 1;
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            if (ctrl) _pendingNmi   = true;
+            else      _pendingReset = true;
         }
-        if (Input.GetKeyDown(KeyCode.Backspace))
-        {
-            kbdLatch = 0x08;
-            kbdStrobe = 1;
-        }
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            // 급정지용(디버그)
-            // enabled = false;
-        }
-        */
+    }
+
+    // Apple II는 대문자 전용 (원본 Apple II+)
+    private static byte CharToApple2Ascii(char ch)
+    {
+        if (ch == '\b') return 0x08;                        // Backspace
+        if (ch == '\r' || ch == '\n') return 0;             // Return은 GetKeyDown에서 처리
+        if (ch >= 'a' && ch <= 'z') return (byte)(ch - 32); // 소문자 → 대문자
+        if (ch >= 0x20 && ch < 0x7F) return (byte)ch;
+        return 0;
     }
 
     // ------------------------------------------------------------

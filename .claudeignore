@@ -1,0 +1,30 @@
+# 의존성 폴더
+node_modules/
+bower_components/
+
+# 빌드 결과물
+build/
+dist/
+out/
+bundle/
+
+#유니티
+Library/
+Logs/
+obj/
+temp/
+tmp/
+
+# 로그 및 임시 파일
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+
+# 문서 및 이미지
+*.png
+*.jpg
+*.jpeg
+*.gif
