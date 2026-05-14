@@ -8,3 +8,10 @@ Library/
 Logs/
 Temp/
 obj/
+
+# web/ 빌드 산출물
+web/node_modules/
+web/dist/
+
+# 외부 참조 (별도 저장소로 관리)
+reference/
